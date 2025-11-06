@@ -2,12 +2,12 @@ const std = @import("std");
 const allocator = std.heap.page_allocator;
 
 // Returns a new array list which must be deallocated.
-pub fn scanTokens(source: *const []u8) !*std.ArrayList(Token) {
+pub fn scanTokens(source: *const []u8) !std.ArrayList(Token) {
     std.debug.print("{s} {d}\n", .{source.*, source.len});
-    var list = try std.ArrayList(Token).initCapacity(allocator, 10);
+    const list = try std.ArrayList(Token).initCapacity(allocator, 1);
     var scanner: Scanner = .{
         .source = source,
-        .tokens = &list,
+        .tokens = list,
     };
 
     while (scanner.current < source.len) {
@@ -21,7 +21,7 @@ pub fn scanTokens(source: *const []u8) !*std.ArrayList(Token) {
 // the lexer code.
 const Scanner = struct {
     source: *const []u8,
-    tokens: *std.ArrayList(Token),
+    tokens: std.ArrayList(Token),
     start: u32 = 0,
     current: u32 = 0,
     line: u32 = 1,

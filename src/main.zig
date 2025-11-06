@@ -18,13 +18,14 @@ fn runInterpreter() !void {
 
         try print("\n");
 
-        var tokens: *std.ArrayList(lexer.Token) = try lexer.scanTokens(&buf[0..bytes]);
+        var tokens: std.ArrayList(lexer.Token) = try lexer.scanTokens(&buf[0..bytes]);
 
-        try print("Double success!\n");
+        std.debug.print("{d}\n", .{tokens.items.len});
+        for (tokens.items) |token| {
+            std.debug.print("{s}\n", .{@tagName(token.type)});
+        }
 
         tokens.deinit(allocator);
-
-        try print("Succes?\n");
 
         if (i > 3) {
             running = false;
@@ -64,10 +65,8 @@ pub fn main() !void {
 
     try setupScreen();
 
-    try print("Hi Mom!\n");
     try runInterpreter();
 
     try tearDownScreen();
-    try print("See you later!\n");
 }
 
