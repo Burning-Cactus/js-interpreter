@@ -26,44 +26,51 @@ const Scanner = struct {
     current: u32 = 0,
     line: u32 = 1,
 
-    fn scanToken(self: *Scanner) void {
-        self.start = self.current;
-        const c = self.source.*[self.current];
+    fn scanToken(scanner: *Scanner) void {
+        scanner.start = scanner.current;
+        const c = scanner.nextChar();
         switch (c) {
-            '(' => self.addToken(TokenType.LEFT_PAREN),
-            ')' => self.addToken(TokenType.RIGHT_PAREN),
-            '[' => self.addToken(TokenType.LEFT_BRACKET),
-            ']' => self.addToken(TokenType.RIGHT_BRACKET),
-            '{' => self.addToken(TokenType.LEFT_BRACE),
-            '}' => self.addToken(TokenType.RIGHT_BRACE),
-            ';' => self.addToken(TokenType.SEMICOLON),
-            ':' => self.addToken(TokenType.COLON),
+            '(' => scanner.addToken(TokenType.LEFT_PAREN),
+            ')' => scanner.addToken(TokenType.RIGHT_PAREN),
+            '[' => scanner.addToken(TokenType.LEFT_BRACKET),
+            ']' => scanner.addToken(TokenType.RIGHT_BRACKET),
+            '{' => scanner.addToken(TokenType.LEFT_BRACE),
+            '}' => scanner.addToken(TokenType.RIGHT_BRACE),
+            ';' => scanner.addToken(TokenType.SEMICOLON),
+            ':' => scanner.addToken(TokenType.COLON),
             '=' => {
                 // Assignment operator
-                if (!self.match('=')) {
-                    self.addToken(TokenType.EQUAL);
-                    return;
+                if (!scanner.match('=')) {
+                    scanner.addToken(TokenType.EQUAL);
                 }
                 // Equality
-                if (!self.match('=')) {
-                    self.addToken(TokenType.DOUBLE_EQUAL);
+                else if (!scanner.match('=')) {
+                    scanner.addToken(TokenType.DOUBLE_EQUAL);
                 }
                 // Strict equality
                 else {
-                    self.addToken(TokenType.TRIPLE_EQUAL);
+                    scanner.addToken(TokenType.TRIPLE_EQUAL);
                 }
 
             },
-            '+' => self.addToken(TokenType.PLUS),
-            '-' => self.addToken(TokenType.MINUS),
+            '+' => scanner.addToken(TokenType.PLUS),
+            '-' => scanner.addToken(TokenType.MINUS),
 
-            else => self.addToken(TokenType.IDENTIFIER),
+            else => {
+                while (scanner.current < scanner.source.len and scanner.nextChar() != ' ') {}
+                scanner.addToken(TokenType.IDENTIFIER);
+            },
         }
-        self.current = self.current + 1;
+    }
+
+    fn nextChar(scanner: *Scanner) u8 {
+        const c = scanner.source.*[scanner.current];
+        scanner.current += 1;
+        return c;
     }
 
     fn match(self: *Scanner, char: u8) bool {
-        if (self.current == self.source.len) {
+        if (self.current >= self.source.len) {
             return false;
         }
         if (self.source.*[self.current] != char) {
