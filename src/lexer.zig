@@ -1,20 +1,15 @@
 const std = @import("std");
 const allocator = std.heap.page_allocator;
 
+const Allocator = std.mem.Allocator;
+const StringHashMap = std.hash_map.StringHashMap;
+
 // Returns a new array list which must be deallocated.
 pub fn scanTokens(source: *const []u8) !std.ArrayList(Token) {
     std.debug.print("{s} {d}\n", .{source.*, source.len});
-    const list = try std.ArrayList(Token).initCapacity(allocator, 1);
-    var scanner: Scanner = .{
-        .source = source,
-        .tokens = list,
-    };
-
-    while (scanner.current < source.len) {
-        scanner.scanToken();
-    }
-
-    return scanner.tokens;
+    var scanner = try Scanner.init(allocator, source);
+    const tokens: std.ArrayList(Token) = try scanner.scanTokens(allocator);
+    return tokens;
 }
 
 // Scanner is an object so that the data can easily be cleaned up when leaving
@@ -26,7 +21,25 @@ const Scanner = struct {
     current: u32 = 0,
     line: u32 = 1,
 
-    fn scanToken(scanner: *Scanner) void {
+    fn init(gpa: Allocator, source: *const []u8) Allocator.Error!Scanner {
+        const tokens = try std.ArrayList(Token).initCapacity(gpa, 1);
+        const self = Scanner{ 
+            .source = source,
+            .tokens = tokens,
+        };
+        return self;
+    }
+
+    fn scanTokens(scanner: *Scanner, gpa: Allocator) Allocator.Error!std.ArrayList(Token) {
+        var keywords = StringHashMap(TokenType).init(gpa);
+        defer keywords.deinit();
+        while (scanner.current < scanner.source.len) {
+            scanner.scanToken(keywords);
+        }
+        return scanner.tokens;
+    }
+
+    fn scanToken(scanner: *Scanner, keywords: StringHashMap(TokenType)) void {
         scanner.start = scanner.current;
         const c = scanner.nextChar();
         switch (c) {
@@ -55,12 +68,29 @@ const Scanner = struct {
             },
             '+' => scanner.addToken(TokenType.PLUS),
             '-' => scanner.addToken(TokenType.MINUS),
+            ' ', '\r', '\t' => {},
+            '\n' => {
+                scanner.line += 1;
+            },
 
             else => {
-                while (scanner.current < scanner.source.len and scanner.nextChar() != ' ') {}
-                scanner.addToken(TokenType.IDENTIFIER);
+                while (scanner.current < scanner.source.len and isAlpha(scanner.source.*[scanner.current])) {
+                    scanner.current += 1;
+                }
+                const literal: []u8 = scanner.source.*[scanner.start..scanner.current];
+                if (keywords.get(literal)) |tokenType| {
+                    scanner.addTokenLexeme(tokenType, literal);
+                } else {
+                    scanner.addTokenLexeme(TokenType.IDENTIFIER, literal);
+                }
             },
         }
+    }
+
+    fn isAlpha(char: u8) bool {
+        return (char >= 'a' and char <= 'z') or
+            (char >= 'A' and char <= 'Z') or
+            char == '_';
     }
 
     fn nextChar(scanner: *Scanner) u8 {
@@ -80,14 +110,18 @@ const Scanner = struct {
         return true;
     }
 
-    fn addToken(self: *Scanner, tokType: TokenType) void {
-        const literal: []u8 = self.source.*[self.start..self.current];
+    fn addTokenLexeme(self: *Scanner, tokType: TokenType, lexeme: []u8) void {
         const token = Token{
             .type = tokType,
-            .lexeme = literal,
+            .lexeme = lexeme,
             .line = self.line,
         };
         self.tokens.append(allocator, token) catch return;
+    }
+
+    fn addToken(self: *Scanner, tokType: TokenType) void {
+        const literal: []u8 = self.source.*[self.start..self.current];
+        addTokenLexeme(self, tokType, literal);
     }
 };
 
